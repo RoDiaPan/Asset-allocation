@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>資產配置儀表板</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { background-color: #121214; font-family: 'Inter', sans-serif; }
+  input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+  .glass { background: rgba(255,255,255,0.03); backdrop-filter: blur(10px); }
+  .gradient-text { background: linear-gradient(to right, #6366f1, #a855f7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .page { display: none; }
+  .page.active { display: block; }
+  .nav-btn { transition: all 0.3s; }
+  .nav-btn.active { background: linear-gradient(to right, #6366f1, #a855f7); color: white; }
+</style>
+</head>
+<body class="min-h-screen text-gray-200 p-6">
+
+<div class="max-w-5xl mx-auto">
+  <!-- Header -->
+  <div class="mb-6">
+    <h1 class="text-3xl font-bold gradient-text mb-1">資產配置儀表板</h1>
+    <p class="text-gray-500 text-sm">即時追蹤您的資產、負債與投資組合</p>
+  </div>
+
+  <!-- Nav -->
+  <div class="flex gap-3 mb-8">
+    <button onclick="switchPage('dashboard')" id="nav-dashboard" class="nav-btn active px-5 py-2 rounded-xl text-sm font-medium border border-gray-700 hover:scale-105 transition-all duration-300">
+      📊 儀表板
+    </button>
+    <button onclick="switchPage('stocks')" id="nav-stocks" class="nav-btn px-5 py-2 rounded-xl text-sm font-medium border border-gray-700 text-gray-400 hover:scale-105 transition-all duration-300">
+      📈 股票投資
+    </button>
+  </div>
+
+  <!-- ===== 儀表板頁 ===== -->
+  <div id="page-dashboard" class="page active space-y-6">
+
+    <!-- 資產輸入 -->
+    <div class="glass border border-gray-800 rounded-2xl p-6">
+      <h2 class="text-lg font-semibold text-gray-200 mb-4 flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-indigo-400 inline-block"></span> 資產更新
+      </h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">現金 (NT$)</label>
+          <input id="cash" type="number" placeholder="0" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-gray-100 focus:outline-none focus:border-indigo-500 transition-all" />
+        </div>
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">股票總市值 (NT$) <span id="stock-hint" class="text-indigo-400 text-xs ml-1"></span></label>
+          <input id="stock" type="number" placeholder="由股票頁自動帶入，或手動輸入" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-gray-100 focus:outline-none focus:border-purple-500 transition-all" />
+        </div>
+      </div>
+    </div>
+
+    <!-- 負債輸入 -->
+    <div class="glass border border-gray-800 rounded-2xl p-6">
+      <h2 class="text-lg font-semibold text-gray-200 mb-4 flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-rose-400 inline-block"></span> 負債更新
+      </h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">信貸餘額 (NT$)</label>
+          <input id="personal_loan" type="number" placeholder="0" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-gray-100 focus:outline-none focus:border-rose-500 transition-all" />
+        </div>
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">房貸餘額 (NT$)</label>
+          <input id="mortgage" type="number" placeholder="0" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-gray-100 focus:outline-none focus:border-rose-500 transition-all" />
+        </div>
+      </div>
+      <div class="mt-4 flex justify-end">
+        <button onclick="updateDashboard()" class="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-6 py-2.5 rounded-xl font-medium hover:scale-105 transition-all duration-300 shadow-lg shadow-indigo-900/40">
+          更新儀表板
+        </button>
+      </div>
+    </div>
+
+    <!-- 摘要卡片 -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div class="glass border border-gray-800 rounded-2xl p-5">
+        <p class="text-xs text-gray-500 mb-1">總資產</p>
+        <p id="total_assets" class="text-xl font-bold text-indigo-300">$0</p>
+      </div>
+      <div class="glass border border-gray-800 rounded-2xl p-5">
+        <p class="text-xs text-gray-500 mb-1">總負債</p>
+        <p id="total_liabilities" class="text-xl font-bold text-rose-400">$0</p>
+      </div>
+      <div class="glass border border-gray-800 rounded-2xl p-5">
+        <p class="text-xs text-gray-500 mb-1">淨資產</p>
+        <p id="net_worth" class="text-xl font-bold text-emerald-400">$0</p>
+      </div>
+      <div class="glass border border-gray-800 rounded-2xl p-5">
+        <p class="text-xs text-gray-500 mb-1">負債比率</p>
+        <p id="debt_ratio" class="text-xl font-bold text-amber-400">0%</p>
+      </div>
+    </div>
+
+    <!-- 圖表 + 進度條 -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+      <div class="glass border border-gray-800 rounded-2xl p-6">
+        <h2 class="text-lg font-semibold text-gray-200 mb-4 flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-purple-400 inline-block"></span> 資產配置佔比
+        </h2>
+        <div class="flex justify-center items-center" style="height:220px">
+          <canvas id="pieChart"></canvas>
+        </div>
+        <div class="flex justify-center gap-6 mt-4 text-xs text-gray-400">
+          <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-indigo-500 inline-block"></span>現金</span>
+          <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-purple-500 inline-block"></span>股票</span>
+        </div>
+      </div>
+
+      <div class="glass border border-gray-800 rounded-2xl p-6 space-y-5">
+        <h2 class="text-lg font-semibold text-gray-200 flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-indigo-400 inline-block"></span> 資產進度
+        </h2>
+        <div>
+          <div class="flex justify-between text-xs text-gray-400 mb-1"><span>現金</span><span id="cash_label">$0</span></div>
+          <div class="h-2.5 bg-gray-800 rounded-full overflow-hidden">
+            <div id="cash_bar" class="h-full bg-gradient-to-r from-indigo-500 to-indigo-400 rounded-full transition-all duration-700" style="width:0%"></div>
+          </div>
+        </div>
+        <div>
+          <div class="flex justify-between text-xs text-gray-400 mb-1"><span>股票</span><span id="stock_label">$0</span></div>
+          <div class="h-2.5 bg-gray-800 rounded-full overflow-hidden">
+            <div id="stock_bar" class="h-full bg-gradient-to-r from-purple-500 to-purple-400 rounded-full transition-all duration-700" style="width:0%"></div>
+          </div>
+        </div>
+        <div>
+          <div class="flex justify-between text-xs text-gray-400 mb-1"><span>信貸</span><span id="ploan_label">$0</span></div>
+          <div class="h-2.5 bg-gray-800 rounded-full overflow-hidden">
+            <div id="ploan_bar" class="h-full bg-gradient-to-r from-rose-500 to-rose-400 rounded-full transition-all duration-700" style="width:0%"></div>
+          </div>
+        </div>
+        <div>
+          <div class="flex justify-between text-xs text-gray-400 mb-1"><span>房貸</span><span id="mortgage_label">$0</span></div>
+          <div class="h-2.5 bg-gray-800 rounded-full overflow-hidden">
+            <div id="mortgage_bar" class="h-full bg-gradient-to-r from-rose-600 to-orange-400 rounded-full transition-all duration-700" style="width:0%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 明細表格 -->
+    <div class="glass border border-gray-800 rounded-2xl p-6">
+      <h2 class="text-lg font-semibold text-gray-200 mb-4 flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span> 資產負債明細
+      </h2>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-gray-500 border-b border-gray-800">
+              <th class="text-left py-2 pb-3">項目</th>
+              <th class="text-left py-2 pb-3">類別</th>
+              <th class="text-right py-2 pb-3">金額 (NT$)</th>
+              <th class="text-right py-2 pb-3">佔比</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody" class="divide-y divide-gray-800/60">
+            <tr class="text-gray-400"><td colspan="4" class="py-6 text-center text-gray-600">尚未輸入資料</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- end dashboard page -->
+
+  <!-- ===== 股票頁 ===== -->
+  <div id="page-stocks" class="page space-y-6">
+
+    <!-- 匯率設定 -->
+    <div class="glass border border-gray-800 rounded-2xl p-6">
+      <h2 class="text-lg font-semibold text-gray-200 mb-4 flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-amber-400 inline-block"></span> 匯率設定
+      </h2>
+      <div class="flex items-center gap-4">
+        <div class="flex-1 max-w-xs">
+          <label class="text-xs text-gray-500 mb-1 block">USD / TWD 匯率</label>
+          <input id="usd_rate" type="number" value="32" placeholder="32" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-gray-100 focus:outline-none focus:border-amber-500 transition-all" />
+        </div>
+        <p class="text-xs text-gray-500 mt-4">美股市值將以此匯率換算為台幣</p>
+      </div>
+    </div>
+
+    <!-- 台股 -->
+    <div class="glass border border-gray-800 rounded-2xl p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-semibold text-gray-200 flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span> 台股持倉
+        </h2>
+        <button onclick="addRow('tw')" class="text-xs px-3 py-1.5 rounded-lg border border-emerald-700 text-emerald-400 hover:bg-emerald-900/30 hover:scale-105 transition-all duration-300">
+          ＋ 新增標的
+        </button>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-gray-500 border-b border-gray-800 text-xs">
+              <th class="text-left py-2 pb-3">股票代號／名稱</th>
+              <th class="text-right py-2 pb-3">持股數量</th>
+              <th class="text-right py-2 pb-3">每股成本 (NT$)</th>
+              <th class="text-right py-2 pb-3">每股現價 (NT$)</th>
+              <th class="text-right py-2 pb-3">市值 (NT$)</th>
+              <th class="text-right py-2 pb-3">損益</th>
+              <th class="py-2 pb-3"></th>
+            </tr>
+          </thead>
+          <tbody id="tw-table" class="divide-y divide-gray-800/60"></tbody>
+          <tfoot>
+            <tr class="border-t border-gray-700">
+              <td colspan="4" class="pt-3 text-xs text-gray-500">台股小計</td>
+              <td id="tw-total" class="pt-3 text-right font-semibold text-emerald-400">$0</td>
+              <td id="tw-pnl" class="pt-3 text-right text-xs">$0</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+    <!-- 美股 -->
+    <div class="glass border border-gray-800 rounded-2xl p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-semibold text-gray-200 flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-blue-400 inline-block"></span> 美股持倉
+        </h2>
+        <button onclick="addRow('us')" class="text-xs px-3 py-1.5 rounded-lg border border-blue-700 text-blue-400 hover:bg-blue-900/30 hover:scale-105 transition-all duration-300">
+          ＋ 新增標的
+        </button>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-gray-500 border-b border-gray-800 text-xs">
+              <th class="text-left py-2 pb-3">股票代號／名稱</th>
+              <th class="text-right py-2 pb-3">持股數量</th>
+              <th class="text-right py-2 pb-3">每股成本 (USD)</th>
+              <th class="text-right py-2 pb-3">每股現價 (USD)</th>
+              <th class="text-right py-2 pb-3">市值 (NT$)</th>
+              <th class="text-right py-2 pb-3">損益 (USD)</th>
+              <th class="py-2 pb-3"></th>
+            </tr>
+          </thead>
+          <tbody id="us-table" class="divide-y divide-gray-800/60"></tbody>
+          <tfoot>
+            <tr class="border-t border-gray-700">
+              <td colspan="4" class="pt-3 text-xs text-gray-500">美股小計（換算台幣）</td>
+              <td id="us-total" class="pt-3 text-right font-semibold text-blue-400">$0</td>
+              <td id="us-pnl" class="pt-3 text-right text-xs">$0</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+    <!-- 股票彙總 -->
+    <div class="glass border border-gray-800 rounded-2xl p-6">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <p class="text-xs text-gray-500 mb-1">股票投資組合總市值（NT$）</p>
+          <p id="stock-portfolio-total" class="text-2xl font-bold gradient-text">$0</p>
+        </div>
+        <button onclick="syncToDashboard()" class="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-6 py-2.5 rounded-xl font-medium hover:scale-105 transition-all duration-300 shadow-lg shadow-indigo-900/40">
+          ↩ 同步至儀表板
+        </button>
+      </div>
+    </div>
+
+  </div><!-- end stocks page -->
+</div>
+
+<script>
+let pieChart = null;
+const twRows = [];
+const usRows = [];
+let twIdCnt = 0, usIdCnt = 0;
+
+// ---- Nav ----
+function switchPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => { b.classList.remove('active'); b.classList.add('text-gray-400'); });
+  document.getElementById('page-' + page).classList.add('active');
+  const btn = document.getElementById('nav-' + page);
+  btn.classList.add('active');
+  btn.classList.remove('text-gray-400');
+  if (page === 'stocks') recalcStocks();
+}
+
+// ---- Stock rows ----
+function addRow(mkt) {
+  const id = mkt === 'tw' ? ++twIdCnt : ++usIdCnt;
+  const rid = mkt + '-' + id;
+  const arr = mkt === 'tw' ? twRows : usRows;
+  arr.push({ id: rid, symbol: '', shares: 0, cost: 0, price: 0 });
+  renderStockTable(mkt);
+}
+
+function removeRow(mkt, rid) {
+  const arr = mkt === 'tw' ? twRows : usRows;
+  const i = arr.findIndex(r => r.id === rid);
+  if (i > -1) arr.splice(i, 1);
+  renderStockTable(mkt);
+  recalcStocks();
+}
+
+function updateRow(mkt, rid, field, val) {
+  const arr = mkt === 'tw' ? twRows : usRows;
+  const r = arr.find(r => r.id === rid);
+  if (!r) return;
+  r[field] = field === 'symbol' ? val : parseFloat(val) || 0;
+  recalcStocks();
+}
+
+function renderStockTable(mkt) {
+  const arr = mkt === 'tw' ? twRows : usRows;
+  const tbody = document.getElementById(mkt + '-table');
+  const color = mkt === 'tw' ? 'emerald' : 'blue';
+  const currency = mkt === 'tw' ? 'NT$' : 'USD';
+  tbody.innerHTML = arr.length === 0
+    ? `<tr><td colspan="7" class="py-5 text-center text-gray-600 text-xs">尚未新增標的</td></tr>`
+    : arr.map(r => {
+        const rate = mkt === 'us' ? (parseFloat(document.getElementById('usd_rate').value) || 32) : 1;
+        const mktVal = r.shares * r.price * rate;
+        const costVal = r.shares * r.cost;
+        const pnl = mkt === 'tw' ? (r.price - r.cost) * r.shares : (r.price - r.cost) * r.shares;
+        const pnlColor = pnl >= 0 ? 'text-emerald-400' : 'text-rose-400';
+        const pnlSign = pnl >= 0 ? '+' : '';
+        return `
+        <tr class="hover:bg-white/5 transition-colors">
+          <td class="py-2.5">
+            <input onchange="updateRow('${mkt}','${r.id}','symbol',this.value)" value="${r.symbol}" placeholder="如 2330 / AAPL" class="bg-gray-900 border border-gray-700 rounded-lg px-2 py-1 text-gray-100 text-xs w-36 focus:outline-none focus:border-${color}-500" />
+          </td>
+          <td class="py-2.5 text-right">
+            <input type="number" onchange="updateRow('${mkt}','${r.id}','shares',this.value)" value="${r.shares||''}" placeholder="0" class="bg-gray-900 border border-gray-700 rounded-lg px-2 py-1 text-gray-100 text-xs w-24 text-right focus:outline-none focus:border-${color}-500" />
+          </td>
+          <td class="py-2.5 text-right">
+            <input type="number" onchange="updateRow('${mkt}','${r.id}','cost',this.value)" value="${r.cost||''}" placeholder="0" class="bg-gray-900 border border-gray-700 rounded-lg px-2 py-1 text-gray-100 text-xs w-28 text-right focus:outline-none focus:border-${color}-500" />
+          </td>
+          <td class="py-2.5 text-right">
+            <input type="number" onchange="updateRow('${mkt}','${r.id}','price',this.value)" value="${r.price||''}" placeholder="0" class="bg-gray-900 border border-gray-700 rounded-lg px-2 py-1 text-gray-100 text-xs w-28 text-right focus:outline-none focus:border-${color}-500" />
+          </td>
+          <td class="py-2.5 text-right font-mono text-${color}-300 text-xs">$${Math.round(mktVal).toLocaleString()}</td>
+          <td class="py-2.5 text-right ${pnlColor} text-xs font-mono">${pnlSign}${mkt==='tw'?'$'+Math.round(pnl).toLocaleString():'$'+pnl.toFixed(0)}</td>
+          <td class="py-2.5 text-right">
+            <button onclick="removeRow('${mkt}','${r.id}')" class="text-gray-600 hover:text-rose-400 transition-colors text-xs px-1">✕</button>
+          </td>
+        </tr>`;
+      }).join('');
+}
+
+function recalcStocks() {
+  const rate = parseFloat(document.getElementById('usd_rate').value) || 32;
+  let twTotal = 0, twPnl = 0;
+  twRows.forEach(r => { twTotal += r.shares * r.price; twPnl += (r.price - r.cost) * r.shares; });
+  let usTotal = 0, usPnl = 0;
+  usRows.forEach(r => { usTotal += r.shares * r.price * rate; usPnl += (r.price - r.cost) * r.shares; });
+
+  document.getElementById('tw-total').textContent = '$' + Math.round(twTotal).toLocaleString();
+  document.getElementById('us-total').textContent = '$' + Math.round(usTotal).toLocaleString();
+
+  const twPnlEl = document.getElementById('tw-pnl');
+  twPnlEl.textContent = (twPnl >= 0 ? '+' : '') + '$' + Math.round(twPnl).toLocaleString();
+  twPnlEl.className = 'pt-3 text-right text-xs ' + (twPnl >= 0 ? 'text-emerald-400' : 'text-rose-400');
+
+  const usPnlEl = document.getElementById('us-pnl');
+  usPnlEl.textContent = (usPnl >= 0 ? '+' : '') + 'USD ' + usPnl.toFixed(0);
+  usPnlEl.className = 'pt-3 text-right text-xs ' + (usPnl >= 0 ? 'text-emerald-400' : 'text-rose-400');
+
+  const grandTotal = twTotal + usTotal;
+  document.getElementById('stock-portfolio-total').textContent = '$' + Math.round(grandTotal).toLocaleString();
+
+  renderStockTable('tw');
+  renderStockTable('us');
+}
+
+function syncToDashboard() {
+  const rate = parseFloat(document.getElementById('usd_rate').value) || 32;
+  let twTotal = 0, usTotal = 0;
+  twRows.forEach(r => { twTotal += r.shares * r.price; });
+  usRows.forEach(r => { usTotal += r.shares * r.price * rate; });
+  const grand = Math.round(twTotal + usTotal);
+  document.getElementById('stock').value = grand;
+  const hint = document.getElementById('stock-hint');
+  hint.textContent = '✓ 已從股票頁同步';
+  switchPage('dashboard');
+  updateDashboard();
+}
+
+// ---- Dashboard ----
+function fmt(n) { return '$' + Number(n).toLocaleString('zh-TW'); }
+function pct(val, total) { if (!total) return '0.0%'; return (val / total * 100).toFixed(1) + '%'; }
+
+function updateDashboard() {
+  const cash = parseFloat(document.getElementById('cash').value) || 0;
+  const stock = parseFloat(document.getElementById('stock').value) || 0;
+  const ploan = parseFloat(document.getElementById('personal_loan').value) || 0;
+  const mortgage = parseFloat(document.getElementById('mortgage').value) || 0;
+
+  const totalAssets = cash + stock;
+  const totalLiab = ploan + mortgage;
+  const netWorth = totalAssets - totalLiab;
+  const debtRatio = totalAssets ? (totalLiab / totalAssets * 100).toFixed(1) : 0;
+
+  document.getElementById('total_assets').textContent = fmt(totalAssets);
+  document.getElementById('total_liabilities').textContent = fmt(totalLiab);
+  const nwEl = document.getElementById('net_worth');
+  nwEl.textContent = fmt(netWorth);
+  nwEl.className = 'text-xl font-bold ' + (netWorth >= 0 ? 'text-emerald-400' : 'text-rose-400');
+  document.getElementById('debt_ratio').textContent = debtRatio + '%';
+
+  const maxVal = Math.max(cash, stock, ploan, mortgage, 1);
+  document.getElementById('cash_label').textContent = fmt(cash);
+  document.getElementById('stock_label').textContent = fmt(stock);
+  document.getElementById('ploan_label').textContent = fmt(ploan);
+  document.getElementById('mortgage_label').textContent = fmt(mortgage);
+  document.getElementById('cash_bar').style.width = (cash / maxVal * 100) + '%';
+  document.getElementById('stock_bar').style.width = (stock / maxVal * 100) + '%';
+  document.getElementById('ploan_bar').style.width = (ploan / maxVal * 100) + '%';
+  document.getElementById('mortgage_bar').style.width = (mortgage / maxVal * 100) + '%';
+
+  // Pie
+  const ctx = document.getElementById('pieChart').getContext('2d');
+  if (pieChart) pieChart.destroy();
+  const hasBoth = cash > 0 && stock > 0;
+  const pieData = hasBoth ? [cash, stock] : (cash > 0 ? [cash, 0.00001] : [0.00001, stock > 0 ? stock : 0.00001]);
+  const pieBorders = hasBoth ? ['#121214', '#121214'] : (cash > 0 ? ['#6366f1', 'transparent'] : ['transparent', '#a855f7']);
+  pieChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['現金', '股票'],
+      datasets: [{ data: pieData, backgroundColor: ['#6366f1', '#a855f7'], borderColor: pieBorders, borderWidth: hasBoth ? 3 : 0, hoverOffset: 8 }]
+    },
+    options: {
+      cutout: '65%',
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: (c) => {
+          if (!hasBoth && c.dataIndex === (cash > 0 ? 1 : 0)) return null;
+          return ` ${fmt(c.raw)}  (${pct(c.raw, cash + stock)})`;
+        }}}
+      }
+    }
+  });
+
+  // Table
+  const rows = [
+    { name: '現金', type: '資產', val: cash, total: totalAssets, cls: 'text-indigo-300' },
+    { name: '股票', type: '資產', val: stock, total: totalAssets, cls: 'text-purple-300' },
+    { name: '信貸', type: '負債', val: ploan, total: totalLiab, cls: 'text-rose-400' },
+    { name: '房貸', type: '負債', val: mortgage, total: totalLiab, cls: 'text-rose-400' },
+  ];
+  document.getElementById('tableBody').innerHTML = rows.map(r => `
+    <tr class="hover:bg-white/5 transition-colors">
+      <td class="py-3 font-medium ${r.cls}">${r.name}</td>
+      <td class="py-3"><span class="text-xs px-2 py-0.5 rounded-full ${r.type==='資產' ? 'bg-indigo-900/50 text-indigo-300' : 'bg-rose-900/40 text-rose-400'}">${r.type}</span></td>
+      <td class="py-3 text-right font-mono">${fmt(r.val)}</td>
+      <td class="py-3 text-right text-gray-400">${pct(r.val, r.total)}</td>
+    </tr>
+  `).join('') + `
+    <tr class="border-t border-gray-700 font-semibold">
+      <td class="pt-3 text-gray-300">淨資產</td><td class="pt-3"></td>
+      <td class="pt-3 text-right font-mono ${netWorth >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${fmt(netWorth)}</td>
+      <td class="pt-3 text-right text-gray-500">—</td>
+    </tr>`;
+}
+
+// Init empty tables
+renderStockTable('tw');
+renderStockTable('us');
+</script>
+</body>
+</html>
