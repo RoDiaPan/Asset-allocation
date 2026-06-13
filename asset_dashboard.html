@@ -176,12 +176,17 @@
       <h2 class="text-lg font-semibold text-gray-200 mb-4 flex items-center gap-2">
         <span class="w-2 h-2 rounded-full bg-amber-400 inline-block"></span> 匯率設定
       </h2>
-      <div class="flex items-center gap-4">
-        <div class="flex-1 max-w-xs">
+      <div class="flex flex-wrap items-end gap-4">
+        <div class="flex-1 min-w-[160px] max-w-xs">
           <label class="text-xs text-gray-500 mb-1 block">USD / TWD 匯率</label>
-          <input id="usd_rate" type="number" value="32" placeholder="32" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-gray-100 focus:outline-none focus:border-amber-500 transition-all" />
+          <input id="usd_rate" type="number" value="32" placeholder="32" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-gray-100 focus:outline-none focus:border-amber-500 transition-all" oninput="recalcStocks()" />
         </div>
-        <p class="text-xs text-gray-500 mt-4">美股市值將以此匯率換算為台幣</p>
+        <div class="flex flex-col gap-1">
+          <button onclick="fetchRate()" class="px-4 py-2.5 rounded-xl border border-amber-700 text-amber-400 text-sm font-medium hover:bg-amber-900/30 hover:scale-105 transition-all duration-300">
+            🔄 取得最新匯率
+          </button>
+          <p id="rate-status" class="text-xs text-gray-600 text-center"></p>
+        </div>
       </div>
     </div>
 
@@ -466,6 +471,32 @@ function updateDashboard() {
       <td class="pt-3 text-right font-mono ${netWorth >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${fmt(netWorth)}</td>
       <td class="pt-3 text-right text-gray-500">—</td>
     </tr>`;
+}
+
+// ---- Fetch exchange rate ----
+async function fetchRate() {
+  const btn = document.querySelector('button[onclick="fetchRate()"]');
+  const status = document.getElementById('rate-status');
+  btn.textContent = '⏳ 更新中...';
+  btn.disabled = true;
+  status.textContent = '';
+  try {
+    const res = await fetch('/api/exchange-rate');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    document.getElementById('usd_rate').value = data.rate;
+    const dateStr = data.date || '今日';
+    status.textContent = `✓ ${dateStr} 匯率：1 USD = ${data.rate} TWD`;
+    status.className = 'text-xs text-emerald-400 text-center';
+    recalcStocks();
+  } catch (err) {
+    status.textContent = '⚠ 無法取得匯率，請手動輸入';
+    status.className = 'text-xs text-rose-400 text-center';
+  } finally {
+    btn.textContent = '🔄 取得最新匯率';
+    btn.disabled = false;
+  }
 }
 
 // Init empty tables
